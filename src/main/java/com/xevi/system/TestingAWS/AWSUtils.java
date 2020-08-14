@@ -8,6 +8,9 @@ import java.util.Scanner;
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.SystemPropertyCredentialsProvider;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.CreateTagsRequest;
+import software.amazon.awssdk.services.ec2.model.Tag;
 
 public class AWSUtils 
 {
@@ -17,6 +20,11 @@ public class AWSUtils
 	public static AwsCredentialsProvider createCredentialsProvider()
 	{
 		return SystemPropertyCredentialsProvider.create();
+	}
+	
+	public static void addTag(Ec2Client pClient, String pResourceId, String pKey, String pValue) throws Exception
+	{
+        pClient.createTags(CreateTagsRequest.builder().resources(pResourceId).tags(Tag.builder().key(pKey).value(pValue).build()).build());
 	}
 	
 	/**

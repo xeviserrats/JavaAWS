@@ -15,6 +15,9 @@ public class InfoElementsBean
 	public String securityGroupIdPublic 	= null;
 	public String securityGroupIdPrivate 	= null;
 	
+	public String privateNatGateway 		= null;
+	public String privateSubnetsRouteTable 	= null;
+	
 	public String keyPairName				= null;
 
 	public String instanceIdPublic 			= null;

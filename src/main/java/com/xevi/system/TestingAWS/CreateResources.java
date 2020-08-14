@@ -14,7 +14,6 @@ import software.amazon.awssdk.services.ec2.model.AssociateRouteTableRequest;
 import software.amazon.awssdk.services.ec2.model.AttachInternetGatewayRequest;
 import software.amazon.awssdk.services.ec2.model.AttributeBooleanValue;
 import software.amazon.awssdk.services.ec2.model.AuthorizeSecurityGroupIngressRequest;
-import software.amazon.awssdk.services.ec2.model.AvailabilityZone;
 import software.amazon.awssdk.services.ec2.model.CreateInternetGatewayResponse;
 import software.amazon.awssdk.services.ec2.model.CreateKeyPairRequest;
 import software.amazon.awssdk.services.ec2.model.CreateKeyPairResponse;
@@ -28,8 +27,6 @@ import software.amazon.awssdk.services.ec2.model.CreateSubnetResponse;
 import software.amazon.awssdk.services.ec2.model.CreateTagsRequest;
 import software.amazon.awssdk.services.ec2.model.CreateVpcRequest;
 import software.amazon.awssdk.services.ec2.model.CreateVpcResponse;
-import software.amazon.awssdk.services.ec2.model.DeleteKeyPairRequest;
-import software.amazon.awssdk.services.ec2.model.DescribeAvailabilityZonesResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeKeyPairsResponse;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.KeyPairInfo;
@@ -44,7 +41,7 @@ import software.amazon.awssdk.services.ec2.model.Tag;
  * 
  * @author xevi
  */
-public class LauncInstancePublicSubnet 
+public class CreateResources 
 {
 	private InfoElementsBean infoElementsBean = null;
 
@@ -60,7 +57,7 @@ public class LauncInstancePublicSubnet
 	{
 		try
 		{
-			new LauncInstancePublicSubnet().mainImpl(args);
+			new CreateResources().mainImpl(args);
 		}
 		catch(Exception e)
 		{
@@ -77,18 +74,18 @@ public class LauncInstancePublicSubnet
 		Ec2Client client = Ec2Client.builder().region(Region.EU_WEST_1).credentialsProvider(AWSUtils.createCredentialsProvider()).build();
 
 		createKeyPair(client);
-		
+
 		createVPN_Subnets(client);
 
 		configureConnectivity(client);
 
-		prepareInstanceBastion(client);
-		
-		new CreatePrivateLAN(client, infoElementsBean).create();
+		new CreatePublicResources(infoElementsBean).prepareInstanceBastion(client);
+
+		new CreatePrivateResources(client, infoElementsBean).create();
 	}
 
 	/**
-	 * Create an VPC witha  public subnet and a private subnet
+	 * Create an VPC with a public subnet and a private subnet
 	 * @param pClient
 	 * @throws Exception
 	 */
@@ -99,10 +96,8 @@ public class LauncInstancePublicSubnet
 
 		infoElementsBean.vpcId = wVPCResponse.vpc().vpcId();
 
-        Tag tag = Tag.builder().key("Name").value("JavaAWSExample").build();
-
-        CreateTagsRequest tagRequest = CreateTagsRequest.builder().resources(infoElementsBean.vpcId).tags(tag).build();
-        pClient.createTags(tagRequest);
+        pClient.createTags(CreateTagsRequest.builder().resources(infoElementsBean.vpcId).tags(
+        		Tag.builder().key("Name").value("JavaAWSExample").build()).build());
 		
 		System.out.println("VPC_ID: "+ infoElementsBean.vpcId);
 
@@ -144,42 +139,9 @@ public class LauncInstancePublicSubnet
 		// an instance launched into the subnet automatically receives a public IP address
 		pClient.modifySubnetAttribute(ModifySubnetAttributeRequest.builder().subnetId(infoElementsBean.subnetPublicId).mapPublicIpOnLaunch(AttributeBooleanValue.builder().value(true).build()).build());
 	}
-	
-	public void prepareInstanceBastion(Ec2Client pClient) throws Exception
-	{
-		configureSecurityGroupBastion(pClient);
-
-		launchInstanceBastion(pClient);
-	}
-
-	public void launchInstanceBastion(Ec2Client pClient) throws Exception
-	{
-		//aws ec2 run-instances --image-id ami-a4827dc9 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-e1fb8c9a --subnet-id subnet-b46032ec
-		RunInstancesResponse wResp = pClient.runInstances(RunInstancesRequest.builder().imageId(EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1).instanceType(EC2_INSTANCE_TYPE).keyName(infoElementsBean.keyPairName).securityGroupIds(infoElementsBean.securityGroupIdPublic).subnetId(infoElementsBean.subnetPublicId).build());
-		
-		Instance wInstancia = wResp.instances().get(0);
-		infoElementsBean.instanceIdPublic = wInstancia.instanceId();
-		
-		System.out.println("ID_INSTANCIA: " + infoElementsBean.instanceIdPublic);
-		System.out.println("IP PUBLIC: '"+wInstancia.publicIpAddress()+"' DNS: '"+wInstancia.publicDnsName()+"'.");
-	}
-	
-
-
-	public void configureSecurityGroupBastion(Ec2Client pClient) throws Exception
-	{
-		// aws ec2 create-security-group --group-name SSHAccess --description "Security group for SSH access" --vpc-id vpc-2f09a348
-		CreateSecurityGroupResponse wResp = pClient.createSecurityGroup(CreateSecurityGroupRequest.builder().groupName("BastionSSHAccess_2").description("SSH Access to Bastion").vpcId(infoElementsBean.vpcId).build());
-		infoElementsBean.securityGroupIdPublic = wResp.groupId();
-
-		String wMyPublicIP = AWSUtils.getMyIPFromAmazon();
-		String cidrIp = wMyPublicIP + "/32";
-		// aws ec2 authorize-security-group-ingress --group-id sg-e1fb8c9a --protocol tcp --port 22 --cidr 0.0.0.0/0
-		pClient.authorizeSecurityGroupIngress(AuthorizeSecurityGroupIngressRequest.builder().groupId(infoElementsBean.securityGroupIdPublic).ipProtocol("tcp").fromPort(22).toPort(22).cidrIp(cidrIp).build());
-	}
 
 	/**
-	 * 
+	 * If a KEY PAIR with a TAG 'JAVA_KEY' is not found, create one. 
 	 * @param pClient
 	 * @throws Exception
 	 */
@@ -187,22 +149,29 @@ public class LauncInstancePublicSubnet
 	{
 		infoElementsBean.keyPairName = "JAVA_KEY";
 		
+		boolean wExistsKey = false;
 		// if exists, remove previous
 		DescribeKeyPairsResponse wKeysResponse = pClient.describeKeyPairs();
 		for (KeyPairInfo wKeyInfo : wKeysResponse.keyPairs())
 			if ("JAVA_KEY".equals(wKeyInfo.keyName()))
-				pClient.deleteKeyPair(DeleteKeyPairRequest.builder().keyName(infoElementsBean.keyPairName).build());
+			{
+				wExistsKey = true;
+				break;
+			}
 		
-		CreateKeyPairResponse wKeyPairResponse = pClient.createKeyPair(CreateKeyPairRequest.builder().keyName(infoElementsBean.keyPairName).build());
-		String wPEMPrivateKey = wKeyPairResponse.keyMaterial();
+		if (!wExistsKey)
+		{
+			CreateKeyPairResponse wKeyPairResponse = pClient.createKeyPair(CreateKeyPairRequest.builder().keyName(infoElementsBean.keyPairName).build());
+			AWSUtils.addTag(pClient, wKeyPairResponse.keyPairId(), infoElementsBean.keyPairName, infoElementsBean.keyPairName);
 
-		File wKeyPairPEM = new File(System.getProperty("user.dir") + File.separator + "KeyPair_" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + ".pem");
+			String wPEMPrivateKey = wKeyPairResponse.keyMaterial();
 
-		IOUtils.write(wPEMPrivateKey, new FileOutputStream(wKeyPairPEM), Charset.defaultCharset());
+			File wKeyPairPEM = new File(System.getProperty("user.dir") + File.separator + "KeyPair_" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + ".pem");
 
-		System.out.println("PRIVATE KEY PEM: '" + wKeyPairPEM.getAbsolutePath() + "'.");
+			IOUtils.write(wPEMPrivateKey, new FileOutputStream(wKeyPairPEM), Charset.defaultCharset());
+
+			System.out.println("PRIVATE KEY PEM: '" + wKeyPairPEM.getAbsolutePath() + "'.");
+		}
 	}
-
-
 }
 

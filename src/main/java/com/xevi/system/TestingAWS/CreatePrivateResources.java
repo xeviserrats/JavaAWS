@@ -6,11 +6,15 @@ import software.amazon.awssdk.services.ec2.model.CreateSecurityGroupRequest;
 import software.amazon.awssdk.services.ec2.model.CreateSecurityGroupResponse;
 import software.amazon.awssdk.services.ec2.model.CreateSubnetRequest;
 import software.amazon.awssdk.services.ec2.model.CreateSubnetResponse;
+import software.amazon.awssdk.services.ec2.model.CreateTagsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeSubnetsRequest;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.IpPermission;
 import software.amazon.awssdk.services.ec2.model.Placement;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
+import software.amazon.awssdk.services.ec2.model.Subnet;
+import software.amazon.awssdk.services.ec2.model.Tag;
 import software.amazon.awssdk.services.ec2.model.UserIdGroupPair;
 
 /**
@@ -18,7 +22,7 @@ import software.amazon.awssdk.services.ec2.model.UserIdGroupPair;
  * @author xevi
  *
  */
-public class CreatePrivateLAN 
+public class CreatePrivateResources 
 {
 	private Ec2Client client;
 	private InfoElementsBean bean = null;
@@ -30,7 +34,7 @@ public class CreatePrivateLAN
 	public static final String ZONENAME_ID_TWO = "euw1-az2";
 
 	
-	public CreatePrivateLAN(Ec2Client pClient, InfoElementsBean pInfoElementsBean)
+	public CreatePrivateResources(Ec2Client pClient, InfoElementsBean pInfoElementsBean)
 	{
 		super();
 		
@@ -43,28 +47,37 @@ public class CreatePrivateLAN
 		createSubnets();
 		
 		createPrivateSecurityGroups();
-		
+
 		launchInstanceSubnetOne();
 		
 		launchInstanceSubnetTwo();
+
+		AddAccessInternetPrivateSubnets.addConnectibityToPrivateSubnets(client, bean);
 	}
 	
 	private void createSubnets() throws Exception
 	{
 		// aws ec2 create-subnet --vpc-id vpc-2f09a348 --cidr-block 10.0.1.0/24
 		CreateSubnetResponse wSubNetPrivOne = client.createSubnet			(
-				CreateSubnetRequest.builder().vpcId(bean.vpcId).cidrBlock(LauncInstancePublicSubnet.SUBNET_PRIVATE_ONE_CIDR)/*.availabilityZone("eu-west-1a")*/.build()
+				CreateSubnetRequest.builder().vpcId(bean.vpcId).cidrBlock(CreateResources.SUBNET_PRIVATE_ONE_CIDR)/*.availabilityZone("eu-west-1a")*/.build()
 			);
 
 		bean.subnetPrivateOneId = wSubNetPrivOne.subnet().subnetId();
 		System.out.println("Subnet PrivateOne: " + bean.subnetPrivateOneId);
 
+        client.createTags(CreateTagsRequest.builder().resources(bean.subnetPrivateOneId).tags(
+        		Tag.builder().key("Name").value("SubNetPrivateOne").build()).build());
+
 		// aws ec2 create-subnet --vpc-id vpc-2f09a348 --cidr-block 10.0.2.0/24
 		CreateSubnetResponse wSubNetPrivTwo = client.createSubnet			(
-				CreateSubnetRequest.builder().vpcId(bean.vpcId).cidrBlock(LauncInstancePublicSubnet.SUBNET_PRIVATE_TWO_CIDR)/*.availabilityZoneId("euw1-az3")*/.build()
+				CreateSubnetRequest.builder().vpcId(bean.vpcId).cidrBlock(CreateResources.SUBNET_PRIVATE_TWO_CIDR)/*.availabilityZoneId("euw1-az3")*/.build()
 			);
-
+		
 		bean.subnetPrivateTwoId = wSubNetPrivTwo.subnet().subnetId();
+		
+        client.createTags(CreateTagsRequest.builder().resources(bean.subnetPrivateTwoId).tags(
+        		Tag.builder().key("Name").value("SubNetPrivateTwo").build()).build());
+
 		System.out.println("Subnet PrivateTwo: " + bean.subnetPrivateTwoId);
 	}
 
@@ -99,8 +112,8 @@ public class CreatePrivateLAN
 	private void launchInstanceSubnetOne() throws Exception
 	{
 		//aws ec2 run-instances --image-id ami-a4827dc9 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-e1fb8c9a --subnet-id subnet-b46032ec
-		RunInstancesResponse wResp = client.runInstances(RunInstancesRequest.builder().imageId(LauncInstancePublicSubnet.EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1)
-				.instanceType(LauncInstancePublicSubnet.EC2_INSTANCE_TYPE)
+		RunInstancesResponse wResp = client.runInstances(RunInstancesRequest.builder().imageId(CreateResources.EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1)
+				.instanceType(CreateResources.EC2_INSTANCE_TYPE)
 //				.placement(Placement.builder().availabilityZone(ZONENAME_ONE).build())
 				.keyName(bean.keyPairName).securityGroupIds(bean.securityGroupIdPrivate)
 				.subnetId(bean.subnetPrivateOneId).build());
@@ -115,8 +128,8 @@ public class CreatePrivateLAN
 	private void launchInstanceSubnetTwo() throws Exception
 	{
 		//aws ec2 run-instances --image-id ami-a4827dc9 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-e1fb8c9a --subnet-id subnet-b46032ec
-		RunInstancesResponse wResp = client.runInstances(RunInstancesRequest.builder().imageId(LauncInstancePublicSubnet.EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1)
-				.instanceType(LauncInstancePublicSubnet.EC2_INSTANCE_TYPE)
+		RunInstancesResponse wResp = client.runInstances(RunInstancesRequest.builder().imageId(CreateResources.EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1)
+				.instanceType(CreateResources.EC2_INSTANCE_TYPE)
 //				.placement(Placement.builder().availabilityZone(ZONENAME_TWO).build())
 				.keyName(bean.keyPairName).securityGroupIds(bean.securityGroupIdPrivate)
 				.subnetId(bean.subnetPrivateTwoId).build());
