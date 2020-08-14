@@ -1,21 +1,42 @@
 package com.xevi.system.TestingAWS;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.apache.commons.io.IOUtils;
 
-import software.amazon.awssdk.auth.credentials.SystemPropertyCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.*;
+import software.amazon.awssdk.services.ec2.model.AssociateRouteTableRequest;
+import software.amazon.awssdk.services.ec2.model.AttachInternetGatewayRequest;
+import software.amazon.awssdk.services.ec2.model.AttributeBooleanValue;
+import software.amazon.awssdk.services.ec2.model.AuthorizeSecurityGroupIngressRequest;
+import software.amazon.awssdk.services.ec2.model.AvailabilityZone;
+import software.amazon.awssdk.services.ec2.model.CreateInternetGatewayResponse;
+import software.amazon.awssdk.services.ec2.model.CreateKeyPairRequest;
+import software.amazon.awssdk.services.ec2.model.CreateKeyPairResponse;
+import software.amazon.awssdk.services.ec2.model.CreateRouteRequest;
+import software.amazon.awssdk.services.ec2.model.CreateRouteTableRequest;
+import software.amazon.awssdk.services.ec2.model.CreateRouteTableResponse;
+import software.amazon.awssdk.services.ec2.model.CreateSecurityGroupRequest;
+import software.amazon.awssdk.services.ec2.model.CreateSecurityGroupResponse;
+import software.amazon.awssdk.services.ec2.model.CreateSubnetRequest;
+import software.amazon.awssdk.services.ec2.model.CreateSubnetResponse;
+import software.amazon.awssdk.services.ec2.model.CreateTagsRequest;
+import software.amazon.awssdk.services.ec2.model.CreateVpcRequest;
+import software.amazon.awssdk.services.ec2.model.CreateVpcResponse;
+import software.amazon.awssdk.services.ec2.model.DeleteKeyPairRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeAvailabilityZonesResponse;
+import software.amazon.awssdk.services.ec2.model.DescribeKeyPairsResponse;
+import software.amazon.awssdk.services.ec2.model.Instance;
+import software.amazon.awssdk.services.ec2.model.KeyPairInfo;
+import software.amazon.awssdk.services.ec2.model.ModifySubnetAttributeRequest;
+import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
+import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
+import software.amazon.awssdk.services.ec2.model.Tag;
 
 /**
  * Executem les comandes de:
@@ -25,16 +46,16 @@ import software.amazon.awssdk.services.ec2.model.*;
  */
 public class LauncInstancePublicSubnet 
 {
-	private String vpcId 					= null;
-	private String routeTableId 				= null;
-	private String subnetPublicId 			= null;
-	private String subnetPrivateId 			= null;
-	private String gatewayId 				= null;
-	private String securityGroupIdPublic 	= null;
-	
-	private String keyPairName				= null;
-	private String instanceIdPublic 			= null;
+	private InfoElementsBean infoElementsBean = null;
 
+	public static final String VPC_CIDR 							= "10.0.0.0/16";
+	public static final String SUBNET_PUBLIC_CIDR 					= "10.0.0.0/24";
+	public static final String SUBNET_PRIVATE_ONE_CIDR 				= "10.0.1.0/24";
+	public static final String SUBNET_PRIVATE_TWO_CIDR 				= "10.0.2.0/24";
+	
+	public static final String EC2_INSTANCE_LINUX_AMAZON2_AMIID = "ami-07d9160fa81ccffb5";
+	public static final String EC2_INSTANCE_TYPE 				= "t2.micro";
+	
 	public static void main(String[] args) throws Exception
 	{
 		try
@@ -49,6 +70,8 @@ public class LauncInstancePublicSubnet
 
 	private void mainImpl(String[] args) throws Exception
 	{
+		infoElementsBean = new InfoElementsBean();
+
 		AWSUtils.readCredentials();
 
 		Ec2Client client = Ec2Client.builder().region(Region.EU_WEST_1).credentialsProvider(AWSUtils.createCredentialsProvider()).build();
@@ -59,7 +82,9 @@ public class LauncInstancePublicSubnet
 
 		configureConnectivity(client);
 
-		prepareInstance(client);
+		prepareInstanceBastion(client);
+		
+		new CreatePrivateLAN(client, infoElementsBean).create();
 	}
 
 	/**
@@ -70,26 +95,23 @@ public class LauncInstancePublicSubnet
 	public void createVPN_Subnets(Ec2Client pClient) throws Exception
 	{
 		// aws ec2 create-vpc --cidr-block 10.0.0.0/16 
-		CreateVpcResponse wVPCResponse = pClient.createVpc(CreateVpcRequest.builder().cidrBlock("10.0.0.0/16"). build());
+		CreateVpcResponse wVPCResponse = pClient.createVpc(CreateVpcRequest.builder().cidrBlock(VPC_CIDR). build());
 
-		vpcId = wVPCResponse.vpc().vpcId();
+		infoElementsBean.vpcId = wVPCResponse.vpc().vpcId();
 
-		System.out.println("VPC_ID: "+ vpcId);
+        Tag tag = Tag.builder().key("Name").value("JavaAWSExample").build();
+
+        CreateTagsRequest tagRequest = CreateTagsRequest.builder().resources(infoElementsBean.vpcId).tags(tag).build();
+        pClient.createTags(tagRequest);
+		
+		System.out.println("VPC_ID: "+ infoElementsBean.vpcId);
 
 		CreateSubnetResponse wSubNetResp = pClient.createSubnet			(
-				CreateSubnetRequest.builder().vpcId(wVPCResponse.vpc().vpcId()).cidrBlock("10.0.1.0/24").build()
+				CreateSubnetRequest.builder().vpcId(wVPCResponse.vpc().vpcId()).cidrBlock(SUBNET_PUBLIC_CIDR).build()
 			);
 
-		subnetPublicId = wSubNetResp.subnet().subnetId();
-		System.out.println("Subnet Public: " + subnetPublicId);
-
-		// aws ec2 create-subnet --vpc-id vpc-2f09a348 --cidr-block 10.0.0.0/24
-		CreateSubnetResponse wSubNetPriv = pClient.createSubnet			(
-				CreateSubnetRequest.builder().vpcId(wVPCResponse.vpc().vpcId()).cidrBlock("10.0.0.0/24").build()
-			);
-
-		subnetPrivateId = wSubNetPriv.subnet().subnetId();
-		System.out.println("Subnet Privada: " + subnetPrivateId);
+		infoElementsBean.subnetPublicId = wSubNetResp.subnet().subnetId();
+		System.out.println("Subnet Public: " + infoElementsBean.subnetPublicId);
 	}
 	
 	/**
@@ -101,59 +123,59 @@ public class LauncInstancePublicSubnet
 	{
 		// Create an Internet gateway.
 		CreateInternetGatewayResponse wGatewayResponse = pClient.createInternetGateway();
-		gatewayId = wGatewayResponse.internetGateway().internetGatewayId(); 
+		infoElementsBean.gatewayId = wGatewayResponse.internetGateway().internetGatewayId(); 
 
 		//Using the ID from the previous step, attach the Internet gateway to your VPC.
 		pClient.attachInternetGateway(
-				AttachInternetGatewayRequest.builder().vpcId(vpcId).internetGatewayId(wGatewayResponse.internetGateway().internetGatewayId()).build()
+				AttachInternetGatewayRequest.builder().vpcId(infoElementsBean.vpcId).internetGatewayId(wGatewayResponse.internetGateway().internetGatewayId()).build()
 			);
 
-		CreateRouteTableResponse wCreateRouteTableResp = pClient.createRouteTable(CreateRouteTableRequest.builder().vpcId(vpcId).build());
+		CreateRouteTableResponse wCreateRouteTableResp = pClient.createRouteTable(CreateRouteTableRequest.builder().vpcId(infoElementsBean.vpcId).build());
 
-		routeTableId = wCreateRouteTableResp.routeTable().routeTableId();
+		infoElementsBean.routeTableId = wCreateRouteTableResp.routeTable().routeTableId();
 
 		// Create a route in the route table that points all traffic (0.0.0.0/0) to the Internet gateway.
 		pClient.createRoute(
-				CreateRouteRequest.builder().routeTableId(routeTableId).destinationCidrBlock("0.0.0.0/0").gatewayId(gatewayId).build()
+				CreateRouteRequest.builder().routeTableId(infoElementsBean.routeTableId).destinationCidrBlock("0.0.0.0/0").gatewayId(infoElementsBean.gatewayId).build()
 			);
 
-		pClient.associateRouteTable(AssociateRouteTableRequest.builder().subnetId(subnetPublicId).routeTableId(routeTableId).build());
+		pClient.associateRouteTable(AssociateRouteTableRequest.builder().subnetId(infoElementsBean.subnetPublicId).routeTableId(infoElementsBean.routeTableId).build());
 
 		// an instance launched into the subnet automatically receives a public IP address
-		pClient.modifySubnetAttribute(ModifySubnetAttributeRequest.builder().subnetId(subnetPublicId).mapPublicIpOnLaunch(AttributeBooleanValue.builder().value(true).build()).build());
+		pClient.modifySubnetAttribute(ModifySubnetAttributeRequest.builder().subnetId(infoElementsBean.subnetPublicId).mapPublicIpOnLaunch(AttributeBooleanValue.builder().value(true).build()).build());
 	}
 	
-	public void prepareInstance(Ec2Client pClient) throws Exception
+	public void prepareInstanceBastion(Ec2Client pClient) throws Exception
 	{
-		createKeyPair(pClient);
+		configureSecurityGroupBastion(pClient);
 
-		configureSecurityGroup(pClient);
-
-		launchInstance(pClient);
+		launchInstanceBastion(pClient);
 	}
 
-	public void launchInstance(Ec2Client pClient) throws Exception
+	public void launchInstanceBastion(Ec2Client pClient) throws Exception
 	{
 		//aws ec2 run-instances --image-id ami-a4827dc9 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-e1fb8c9a --subnet-id subnet-b46032ec
-		RunInstancesResponse wResp = pClient.runInstances(RunInstancesRequest.builder().imageId("ami-07d9160fa81ccffb5").minCount(1).maxCount(1).instanceType("t2.micro").keyName(keyPairName).securityGroupIds(securityGroupIdPublic).subnetId(subnetPublicId).build());
+		RunInstancesResponse wResp = pClient.runInstances(RunInstancesRequest.builder().imageId(EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1).instanceType(EC2_INSTANCE_TYPE).keyName(infoElementsBean.keyPairName).securityGroupIds(infoElementsBean.securityGroupIdPublic).subnetId(infoElementsBean.subnetPublicId).build());
 		
 		Instance wInstancia = wResp.instances().get(0);
-		instanceIdPublic = wInstancia.instanceId();
+		infoElementsBean.instanceIdPublic = wInstancia.instanceId();
 		
-		System.out.println("ID_INSTANCIA: " + instanceIdPublic);
+		System.out.println("ID_INSTANCIA: " + infoElementsBean.instanceIdPublic);
 		System.out.println("IP PUBLIC: '"+wInstancia.publicIpAddress()+"' DNS: '"+wInstancia.publicDnsName()+"'.");
 	}
 	
-	public void configureSecurityGroup(Ec2Client pClient) throws Exception
+
+
+	public void configureSecurityGroupBastion(Ec2Client pClient) throws Exception
 	{
 		// aws ec2 create-security-group --group-name SSHAccess --description "Security group for SSH access" --vpc-id vpc-2f09a348
-		CreateSecurityGroupResponse wResp = pClient.createSecurityGroup(CreateSecurityGroupRequest.builder().groupName("BastionSSHAccess").description("SSH Access to Bastion").vpcId(vpcId).build());
-		securityGroupIdPublic = wResp.groupId();
+		CreateSecurityGroupResponse wResp = pClient.createSecurityGroup(CreateSecurityGroupRequest.builder().groupName("BastionSSHAccess_2").description("SSH Access to Bastion").vpcId(infoElementsBean.vpcId).build());
+		infoElementsBean.securityGroupIdPublic = wResp.groupId();
 
-		String wMyPublicIP = getMyIPFromAmazon();
+		String wMyPublicIP = AWSUtils.getMyIPFromAmazon();
 		String cidrIp = wMyPublicIP + "/32";
 		// aws ec2 authorize-security-group-ingress --group-id sg-e1fb8c9a --protocol tcp --port 22 --cidr 0.0.0.0/0
-		pClient.authorizeSecurityGroupIngress(AuthorizeSecurityGroupIngressRequest.builder().groupId(securityGroupIdPublic).ipProtocol("tcp").fromPort(22).toPort(22).cidrIp(cidrIp).build());
+		pClient.authorizeSecurityGroupIngress(AuthorizeSecurityGroupIngressRequest.builder().groupId(infoElementsBean.securityGroupIdPublic).ipProtocol("tcp").fromPort(22).toPort(22).cidrIp(cidrIp).build());
 	}
 
 	/**
@@ -163,32 +185,24 @@ public class LauncInstancePublicSubnet
 	 */
 	public void createKeyPair(Ec2Client pClient) throws Exception
 	{
-		keyPairName = "JAVA_KEY";
+		infoElementsBean.keyPairName = "JAVA_KEY";
 		
 		// if exists, remove previous
 		DescribeKeyPairsResponse wKeysResponse = pClient.describeKeyPairs();
 		for (KeyPairInfo wKeyInfo : wKeysResponse.keyPairs())
 			if ("JAVA_KEY".equals(wKeyInfo.keyName()))
-				pClient.deleteKeyPair(DeleteKeyPairRequest.builder().keyName(keyPairName).build());
+				pClient.deleteKeyPair(DeleteKeyPairRequest.builder().keyName(infoElementsBean.keyPairName).build());
 		
-		CreateKeyPairResponse wKeyPairResponse = pClient.createKeyPair(CreateKeyPairRequest.builder().keyName(keyPairName).build());
+		CreateKeyPairResponse wKeyPairResponse = pClient.createKeyPair(CreateKeyPairRequest.builder().keyName(infoElementsBean.keyPairName).build());
 		String wPEMPrivateKey = wKeyPairResponse.keyMaterial();
 
 		File wKeyPairPEM = new File(System.getProperty("user.dir") + File.separator + "KeyPair_" + new SimpleDateFormat("yyyyMMdd").format(new Date()) + ".pem");
 
 		IOUtils.write(wPEMPrivateKey, new FileOutputStream(wKeyPairPEM), Charset.defaultCharset());
 
-		System.out.println("PRIVATE KEY PEM: '" + wPEMPrivateKey + "'.");
+		System.out.println("PRIVATE KEY PEM: '" + wKeyPairPEM.getAbsolutePath() + "'.");
 	}
 
-	private static String getMyIPFromAmazon() throws IOException
-	{
-		URL whatismyip = new URL("http://checkip.amazonaws.com");
-		try (BufferedReader in = new BufferedReader(new InputStreamReader(whatismyip.openStream())))
-		{
-			String ip = in.readLine(); //you get the IP as a String
-			return ip;
-		}
-	}
+
 }
 
