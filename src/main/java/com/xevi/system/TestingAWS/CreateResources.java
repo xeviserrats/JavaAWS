@@ -45,14 +45,6 @@ public class CreateResources
 {
 	private InfoElementsBean infoElementsBean = null;
 
-	public static final String VPC_CIDR 							= "10.0.0.0/16";
-	public static final String SUBNET_PUBLIC_CIDR 					= "10.0.0.0/24";
-	public static final String SUBNET_PRIVATE_ONE_CIDR 				= "10.0.1.0/24";
-	public static final String SUBNET_PRIVATE_TWO_CIDR 				= "10.0.2.0/24";
-	
-	public static final String EC2_INSTANCE_LINUX_AMAZON2_AMIID = "ami-07d9160fa81ccffb5";
-	public static final String EC2_INSTANCE_TYPE 				= "t2.micro";
-	
 	public static void main(String[] args) throws Exception
 	{
 		try
@@ -92,20 +84,22 @@ public class CreateResources
 	public void createVPN_Subnets(Ec2Client pClient) throws Exception
 	{
 		// aws ec2 create-vpc --cidr-block 10.0.0.0/16 
-		CreateVpcResponse wVPCResponse = pClient.createVpc(CreateVpcRequest.builder().cidrBlock(VPC_CIDR). build());
+		CreateVpcResponse wVPCResponse = pClient.createVpc(CreateVpcRequest.builder().cidrBlock(AWSConstants.VPC_CIDR). build());
 
 		infoElementsBean.vpcId = wVPCResponse.vpc().vpcId();
 
-        pClient.createTags(CreateTagsRequest.builder().resources(infoElementsBean.vpcId).tags(
-        		Tag.builder().key("Name").value("JavaAWSExample").build()).build());
+		AWSUtils.addTag(pClient, infoElementsBean.vpcId, "Name", "JavaAWSExample");
 		
 		System.out.println("VPC_ID: "+ infoElementsBean.vpcId);
 
 		CreateSubnetResponse wSubNetResp = pClient.createSubnet			(
-				CreateSubnetRequest.builder().vpcId(wVPCResponse.vpc().vpcId()).cidrBlock(SUBNET_PUBLIC_CIDR).build()
+				CreateSubnetRequest.builder().vpcId(wVPCResponse.vpc().vpcId()).cidrBlock(AWSConstants.SUBNET_PUBLIC_CIDR).build()
 			);
 
 		infoElementsBean.subnetPublicId = wSubNetResp.subnet().subnetId();
+
+		AWSUtils.addTag(pClient, infoElementsBean.vpcId, "Name", "SubNetBastion");
+
 		System.out.println("Subnet Public: " + infoElementsBean.subnetPublicId);
 	}
 	

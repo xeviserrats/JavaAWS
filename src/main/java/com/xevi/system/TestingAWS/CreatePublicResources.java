@@ -36,13 +36,15 @@ public class CreatePublicResources
 	 */
 	private void launchInstanceBastion(Ec2Client pClient) throws Exception
 	{
-		RunInstancesResponse wResp = pClient.runInstances(RunInstancesRequest.builder().imageId(CreateResources.EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1)
-				.instanceType(CreateResources.EC2_INSTANCE_TYPE).keyName(infoElementsBean.keyPairName).securityGroupIds(infoElementsBean.securityGroupIdPublic).subnetId(infoElementsBean.subnetPublicId).build());
+		RunInstancesResponse wResp = pClient.runInstances(RunInstancesRequest.builder().imageId(AWSConstants.EC2_INSTANCE_LINUX_AMAZON2_AMIID).minCount(1).maxCount(1)
+				.instanceType(AWSConstants.EC2_INSTANCE_TYPE).keyName(infoElementsBean.keyPairName).securityGroupIds(infoElementsBean.securityGroupIdPublic)
+				.privateIpAddress("10.0.0.100")
+				.subnetId(infoElementsBean.subnetPublicId).build());
 
 		Instance wInstancia = wResp.instances().get(0);
 		infoElementsBean.instanceIdPublic = wInstancia.instanceId();
 
-		AWSUtils.addTag(pClient, wInstancia.instanceId(), "TIPUS", "BASTION");
+		AWSUtils.addTag(pClient, wInstancia.instanceId(), "Name", "LinuxBastion");
 
 		System.out.println("ID_INSTANCIA: " + infoElementsBean.instanceIdPublic);
 		System.out.println("IP PUBLIC: '"+wInstancia.publicIpAddress()+"' DNS: '"+wInstancia.publicDnsName()+"'.");
@@ -59,6 +61,8 @@ public class CreatePublicResources
 		CreateSecurityGroupResponse wResp = pClient.createSecurityGroup(CreateSecurityGroupRequest.builder().groupName("BastionSSHAccess").description("SSH Access to Bastion").vpcId(infoElementsBean.vpcId).build());
 		infoElementsBean.securityGroupIdPublic = wResp.groupId();
 
+		AWSUtils.addTag(pClient, infoElementsBean.securityGroupIdPublic, "Name", "sgBastion");
+		
 		String wMyPublicIP = AWSUtils.getMyIPFromAmazon();
 		String cidrIp = wMyPublicIP + "/32";
 		// aws ec2 authorize-security-group-ingress --group-id sg-e1fb8c9a --protocol tcp --port 22 --cidr 0.0.0.0/0

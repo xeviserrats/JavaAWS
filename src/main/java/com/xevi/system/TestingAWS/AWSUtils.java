@@ -10,6 +10,9 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.SystemPropertyCredentialsProvider;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.CreateTagsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeSubnetsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeSubnetsResponse;
+import software.amazon.awssdk.services.ec2.model.Subnet;
 import software.amazon.awssdk.services.ec2.model.Tag;
 
 public class AWSUtils 
@@ -22,11 +25,23 @@ public class AWSUtils
 		return SystemPropertyCredentialsProvider.create();
 	}
 	
-	public static void addTag(Ec2Client pClient, String pResourceId, String pKey, String pValue) throws Exception
+	public static void addTag(Ec2Client pClient, String pResourceId, String pKey, String pValue)
 	{
         pClient.createTags(CreateTagsRequest.builder().resources(pResourceId).tags(Tag.builder().key(pKey).value(pValue).build()).build());
 	}
-	
+
+	public static Subnet getSubnet(Ec2Client pClient, String pSubnetId) throws IllegalStateException
+	{
+		DescribeSubnetsResponse wResponse = pClient.describeSubnets(DescribeSubnetsRequest.builder().subnetIds(pSubnetId).build());
+
+		if (wResponse.subnets().size()!=1)
+			throw new IllegalStateException("Subnet '"+pSubnetId+"' not found.");
+
+		Subnet wSubnetPrivateOne = wResponse.subnets().get(0);
+
+		return wSubnetPrivateOne;
+	}
+
 	/**
 	 * Read credentials from keyboard. For security, the credentials are not stored in a file.
 	 */
