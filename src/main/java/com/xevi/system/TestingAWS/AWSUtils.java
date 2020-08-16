@@ -14,6 +14,8 @@ import software.amazon.awssdk.services.ec2.model.DescribeSubnetsRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeSubnetsResponse;
 import software.amazon.awssdk.services.ec2.model.Subnet;
 import software.amazon.awssdk.services.ec2.model.Tag;
+import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.AddTagsRequest;
 
 public class AWSUtils 
 {
@@ -23,6 +25,11 @@ public class AWSUtils
 	public static AwsCredentialsProvider createCredentialsProvider()
 	{
 		return SystemPropertyCredentialsProvider.create();
+	}
+	
+	public static void addTagELB(ElasticLoadBalancingV2Client pClient, String pResourceArn, String pKey, String pValue)
+	{
+		pClient.addTags(AddTagsRequest.builder().resourceArns(pResourceArn).tags(software.amazon.awssdk.services.elasticloadbalancingv2.model.Tag.builder().key(pKey).value(pValue).build()).build());
 	}
 	
 	public static void addTag(Ec2Client pClient, String pResourceId, String pKey, String pValue)

@@ -16,8 +16,8 @@ public class AWSConstants
 	public static final String SUBNET_PRIVATE_ONE_CIDR 				= "10.0.1.0/24";
 	public static final String SUBNET_PRIVATE_TWO_CIDR 				= "10.0.2.0/24";
 
-	public static final String SUBNET_PUBLIC_PARALLEL_ONE_CIDR 		= "10.0.3.0/27";
-	public static final String SUBNET_PUBLIC_PARALLEL_TWO_CIDR 		= "10.0.4.0/27";
+	public static final String SUBNET_PUBLIC_PARALLEL_ONE_CIDR 		= "10.0.10.0/27";
+	public static final String SUBNET_PUBLIC_PARALLEL_TWO_CIDR 		= "10.0.11.0/27";
 
 	public static final String EC2_INSTANCE_LINUX_AMAZON2_AMIID = "ami-07d9160fa81ccffb5";
 	public static final String EC2_INSTANCE_TYPE 				= "t2.micro";
