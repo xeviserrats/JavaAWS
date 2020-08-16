@@ -74,6 +74,8 @@ public class CreateResources
 		new CreatePublicResources(infoElementsBean).prepareInstanceBastion(client);
 
 		new CreatePrivateResources(client, infoElementsBean).create();
+		
+		new CreateLoadBalancer(client, infoElementsBean).exec();
 	}
 
 	/**
@@ -98,7 +100,7 @@ public class CreateResources
 
 		infoElementsBean.subnetPublicId = wSubNetResp.subnet().subnetId();
 
-		AWSUtils.addTag(pClient, infoElementsBean.vpcId, "Name", "SubNetBastion");
+		AWSUtils.addTag(pClient, infoElementsBean.subnetPublicId, "Name", "SubNetBastion");
 
 		System.out.println("Subnet Public: " + infoElementsBean.subnetPublicId);
 	}

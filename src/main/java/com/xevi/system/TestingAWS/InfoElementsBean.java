@@ -19,6 +19,7 @@ public class InfoElementsBean
 	public String loadBalancerArn				= null;
 	public String loadBalancerTargetGroupArn	= null;
 	public String loadBalancerListenerArn		= null;
+	public String loadBalancerDNS				= null;
 
 	public String gatewayId 				= null;
 	public String securityGroupIdPublic 	= null;

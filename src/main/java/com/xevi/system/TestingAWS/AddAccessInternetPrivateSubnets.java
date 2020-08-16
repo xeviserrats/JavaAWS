@@ -2,6 +2,7 @@ package com.xevi.system.TestingAWS;
 
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.Address;
+import software.amazon.awssdk.services.ec2.model.AllocateAddressRequest;
 import software.amazon.awssdk.services.ec2.model.AssociateRouteTableRequest;
 import software.amazon.awssdk.services.ec2.model.CreateNatGatewayRequest;
 import software.amazon.awssdk.services.ec2.model.CreateNatGatewayResponse;
@@ -9,6 +10,7 @@ import software.amazon.awssdk.services.ec2.model.CreateRouteRequest;
 import software.amazon.awssdk.services.ec2.model.CreateRouteTableRequest;
 import software.amazon.awssdk.services.ec2.model.CreateRouteTableResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeAddressesResponse;
+import software.amazon.awssdk.services.ec2.model.DomainType;
 import software.amazon.awssdk.services.ec2.model.Ec2Exception;
 import software.amazon.awssdk.services.ec2.model.Tag;
 
@@ -56,6 +58,8 @@ public class AddAccessInternetPrivateSubnets
 	private static void createRoute(Ec2Client pClient, InfoElementsBean pBean) throws Exception
 	{
 		// we need to wait for NAT GATEWAY being created
+		Thread.sleep(5000);
+
 		boolean wIsException = true;
 		int wNumRetry = 0;
 		do
@@ -94,7 +98,10 @@ public class AddAccessInternetPrivateSubnets
 		DescribeAddressesResponse wDescAdress = pClient.describeAddresses();
 		
 		if (wDescAdress.addresses().isEmpty())
-			throw new IllegalStateException("ALLOCATION IP NOT FOUND");
+		{
+			pClient.allocateAddress(AllocateAddressRequest.builder().domain(DomainType.VPC).build());
+			wDescAdress = pClient.describeAddresses();
+		}
 		
 		for (Address wAddress : wDescAdress.addresses())
 			if (wAddress.hasTags())

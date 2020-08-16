@@ -10,9 +10,14 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.SystemPropertyCredentialsProvider;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.CreateTagsRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeInstanceStatusRequest;
+import software.amazon.awssdk.services.ec2.model.DescribeInstanceStatusResponse;
 import software.amazon.awssdk.services.ec2.model.DescribeSubnetsRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeSubnetsResponse;
+import software.amazon.awssdk.services.ec2.model.InstanceStateName;
+import software.amazon.awssdk.services.ec2.model.InstanceStatus;
 import software.amazon.awssdk.services.ec2.model.Subnet;
+import software.amazon.awssdk.services.ec2.model.SummaryStatus;
 import software.amazon.awssdk.services.ec2.model.Tag;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
 import software.amazon.awssdk.services.elasticloadbalancingv2.model.AddTagsRequest;
@@ -30,6 +35,43 @@ public class AWSUtils
 	public static void addTagELB(ElasticLoadBalancingV2Client pClient, String pResourceArn, String pKey, String pValue)
 	{
 		pClient.addTags(AddTagsRequest.builder().resourceArns(pResourceArn).tags(software.amazon.awssdk.services.elasticloadbalancingv2.model.Tag.builder().key(pKey).value(pValue).build()).build());
+	}
+
+	public static void waitEc2InstanceStatusOK(Ec2Client pClient, String pInstanceId) 
+	{
+		try
+		{
+			boolean wEstatOK = false;
+			int wIndex = 0;
+			do
+			{
+				wIndex++;
+				
+				DescribeInstanceStatusResponse wInstanceRes = pClient.describeInstanceStatus(DescribeInstanceStatusRequest.builder().instanceIds(pInstanceId).build());
+				if (wInstanceRes.instanceStatuses().size()==1)
+				{
+					InstanceStatus wInstanceStatus = wInstanceRes.instanceStatuses().get(0);
+
+					wEstatOK = InstanceStateName.RUNNING.equals(wInstanceStatus.instanceState().name());
+
+					/**
+					 * If the instance is not running. wait a few seconds
+					 */
+					if (!wEstatOK)
+						try {
+							Thread.sleep(2 * 1000 * wIndex);
+						}catch(Exception e) {}
+				}
+				else
+					throw new IllegalStateException("Instance Not Found Exception: '"+pInstanceId+"'");
+				
+			}
+			while (!wEstatOK && wIndex<10);
+		}
+		catch(Exception e)
+		{
+			throw e;
+		}
 	}
 	
 	public static void addTag(Ec2Client pClient, String pResourceId, String pKey, String pValue)

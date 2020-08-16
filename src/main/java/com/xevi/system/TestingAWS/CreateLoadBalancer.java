@@ -1,6 +1,5 @@
 package com.xevi.system.TestingAWS;
 
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.AssociateRouteTableRequest;
 import software.amazon.awssdk.services.ec2.model.AuthorizeSecurityGroupIngressRequest;
@@ -16,7 +15,19 @@ import software.amazon.awssdk.services.ec2.model.RouteTable;
 import software.amazon.awssdk.services.ec2.model.Subnet;
 import software.amazon.awssdk.services.ec2.model.UserIdGroupPair;
 import software.amazon.awssdk.services.elasticloadbalancingv2.ElasticLoadBalancingV2Client;
-import software.amazon.awssdk.services.elasticloadbalancingv2.model.*;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.Action;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.ActionTypeEnum;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.CreateListenerRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.CreateListenerResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.CreateLoadBalancerRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.CreateLoadBalancerResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.CreateTargetGroupRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.CreateTargetGroupResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.DescribeLoadBalancersResponse;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.ProtocolEnum;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.RegisterTargetsRequest;
+import software.amazon.awssdk.services.elasticloadbalancingv2.model.TargetDescription;
 
 /**
  * Create a Load Balancer to forward requests to the Linux in the private subnet. 
@@ -34,36 +45,6 @@ public class CreateLoadBalancer
 		this.bean = pInfoElementsBean;
 	}
 
-	public static void main(String[] args) throws Exception
-	{
-		new CreateLoadBalancer(null, null).mainTestImpl();
-	}
-	
-	public void mainTestImpl() throws Exception
-	{
-		try
-		{
-			bean = new InfoElementsBean();
-			bean.vpcId					= "vpc-08676331e2b0dd0a2";
-			bean.subnetPrivateOneId 	= "subnet-0081186c6d6f9c95a";
-			bean.subnetPrivateTwoId 	= "subnet-0081186c6d6f9c95a";
-			bean.securityGroupIdPrivate	= "sg-0f48a68b8edd94936";
-			bean.gatewayId 				= "igw-0ac4a603e0b4a81c2";
-			bean.instanceIdPrivateOne	= "i-0ba227f523d551761";
-			bean.instanceIdPrivateTwo	= "i-01ece65eb7faabcf9";
-
-			
-			AWSUtils.readCredentials();
-			client = Ec2Client.builder().region(Region.EU_WEST_1).credentialsProvider(AWSUtils.createCredentialsProvider()).build();			
-
-			exec();
-		}
-		catch(Exception e)
-		{
-			throw e;
-		}
-	}
-	
 	public void exec() throws Exception
 	{
 		try
@@ -82,7 +63,7 @@ public class CreateLoadBalancer
 		}
 	}
 
-	public void createLoadBalancer()
+	private void createLoadBalancer()
 	{
 		try
 		{
@@ -108,8 +89,12 @@ public class CreateLoadBalancer
 			AWSUtils.addTagELB(elbClient, bean.loadBalancerTargetGroupArn, "Tipus", "JavaAWSTest");
 
 			// aws elbv2 register-targets --target-group-arn targetgroup-arn --targets Id=i-12345678 Id=i-23456789
-			RegisterTargetsResponse wRegTargetResp = elbClient.registerTargets(RegisterTargetsRequest.builder().targetGroupArn(bean.loadBalancerTargetGroupArn)
-					.targets(TargetDescription.builder().id(bean.instanceIdPrivateOne).id(bean.instanceIdPrivateTwo).build()).build());
+			
+			AWSUtils.waitEc2InstanceStatusOK(client, bean.instanceIdPrivateOne);
+			AWSUtils.waitEc2InstanceStatusOK(client, bean.instanceIdPrivateTwo);
+			
+			elbClient.registerTargets(RegisterTargetsRequest.builder().targetGroupArn(bean.loadBalancerTargetGroupArn).targets(TargetDescription.builder().id(bean.instanceIdPrivateOne).build()).build());
+			elbClient.registerTargets(RegisterTargetsRequest.builder().targetGroupArn(bean.loadBalancerTargetGroupArn).targets(TargetDescription.builder().id(bean.instanceIdPrivateTwo).build()).build());
 
 			// aws elbv2 create-listener --load-balancer-arn loadbalancer-arn --protocol HTTP --port 80  --default-actions Type=forward,TargetGroupArn=targetgroup-arn
 			CreateListenerResponse wCreateListener = elbClient.createListener(CreateListenerRequest.builder().loadBalancerArn(bean.loadBalancerArn).protocol(ProtocolEnum.HTTP).port(80)
@@ -119,15 +104,18 @@ public class CreateLoadBalancer
 
 			bean.loadBalancerListenerArn = wCreateListener.listeners().get(0).listenerArn();
 
-			AWSUtils.addTagELB(elbClient, bean.loadBalancerListenerArn, "Tipus", "JavaAWSTest");
+			DescribeLoadBalancersResponse wLoadBalancerResp = elbClient.describeLoadBalancers(DescribeLoadBalancersRequest.builder().loadBalancerArns(bean.loadBalancerArn).build());
+			bean.loadBalancerDNS = wLoadBalancerResp.loadBalancers().get(0).dnsName();
+
+			System.out.println("LoadBalancer DNS: '"+bean.loadBalancerDNS+"'.");
 		}
 		catch(Exception e)
 		{
 			throw e;
 		}
 	}
-
-	public void sgPrivateIngressLoadBalancerSG()
+	
+	private void sgPrivateIngressLoadBalancerSG()
 	{
 		try
 		{
@@ -179,6 +167,8 @@ public class CreateLoadBalancer
 			
 			AWSUtils.addTag(client, bean.subnetPublicParallelPrivateOne, "Name", "SubnetPublicParallelPrivateOneJava");
 
+			
+			
 			CreateSubnetResponse wSubNetPublicParallelTwo = client.createSubnet			(
 					CreateSubnetRequest.builder().vpcId(bean.vpcId).cidrBlock(AWSConstants.SUBNET_PUBLIC_PARALLEL_TWO_CIDR).availabilityZoneId(wSubnetPrivateTwo.availabilityZoneId()).build()
 				);

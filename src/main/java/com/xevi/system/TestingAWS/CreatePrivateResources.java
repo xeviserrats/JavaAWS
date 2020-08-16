@@ -60,7 +60,7 @@ public class CreatePrivateResources
 		bean.subnetPrivateOneId = wSubNetPrivOne.subnet().subnetId();
 		System.out.println("Subnet PrivateOne: " + bean.subnetPrivateOneId);
 
-		AWSUtils.addTag(client, bean.subnetPrivateTwoId, "Name", "SubNetPrivateOne");
+		AWSUtils.addTag(client, bean.subnetPrivateOneId, "Name", "SubNetPrivateOne");
 
 		// aws ec2 create-subnet --vpc-id vpc-2f09a348 --cidr-block 10.0.2.0/24
 		CreateSubnetResponse wSubNetPrivTwo = client.createSubnet			(
