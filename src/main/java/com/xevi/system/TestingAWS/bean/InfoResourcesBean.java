@@ -1,10 +1,10 @@
-package com.xevi.system.TestingAWS;
+package com.xevi.system.TestingAWS.bean;
 
 /**
  * AWS identifiers: EC2, routes, VPC, subnets ...
  * @author xevi
  */
-public class InfoElementsBean 
+public class InfoResourcesBean 
 {
 	public String vpcId 					= null;
 	public String routeTableId 				= null;

@@ -1,4 +1,9 @@
-package com.xevi.system.TestingAWS;
+package com.xevi.system.TestingAWS.privateSubnet;
+
+import com.xevi.system.TestingAWS.bean.InfoResourcesBean;
+import com.xevi.system.TestingAWS.create.BaseCreateResource;
+import com.xevi.system.TestingAWS.utils.AWSConstants;
+import com.xevi.system.TestingAWS.utils.AWSUtils;
 
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.Address;
@@ -15,38 +20,37 @@ import software.amazon.awssdk.services.ec2.model.Ec2Exception;
 import software.amazon.awssdk.services.ec2.model.Tag;
 
 /**
- * Allow the instances in the private subnet access the internet using a NAT GATEWAY.
+ * Creates the NAT Gateway for the two private subnets.
  * @author xevi
  */
-public class AddAccessInternetPrivateSubnets 
+public class ConfigurePrivateSubnetConnectivity extends BaseCreateResource<Ec2Client>
 {
-
-	/**
-	 * Create a Nat Gateway for the two private subnets. The instances onthose subnets needs internet access.
-	 * @param pClient
-	 * @param pBean
-	 * @throws Exception
-	 */
-	public static void addConnectibityToPrivateSubnets(Ec2Client pClient, InfoElementsBean pBean) throws Exception
+	public ConfigurePrivateSubnetConnectivity(Ec2Client pClient, InfoResourcesBean pBean) 
 	{
-		Address wPublicIP = getAddressForNatGateway(pClient);
-		CreateNatGatewayResponse wGatewayResponse = pClient.createNatGateway(CreateNatGatewayRequest.builder().subnetId(pBean.subnetPublicId).allocationId(wPublicIP.allocationId()).build());
+		super(pClient, pBean);
+	}
+
+	@Override
+	public void create() 
+	{
+		Address wPublicIP = getAddressForNatGateway(client);
+		CreateNatGatewayResponse wGatewayResponse = client.createNatGateway(CreateNatGatewayRequest.builder().subnetId(bean.subnetPublicId).allocationId(wPublicIP.allocationId()).build());
 		
-		pBean.privateNatGateway = wGatewayResponse.natGateway().natGatewayId();
+		bean.privateNatGateway = wGatewayResponse.natGateway().natGatewayId();
 		
-		System.out.println("GatewayId: " + pBean.privateNatGateway);
+		System.out.println("GatewayId: " + bean.privateNatGateway);
 
-		CreateRouteTableResponse wRouteTableResp = pClient.createRouteTable(CreateRouteTableRequest.builder().vpcId(pBean.vpcId).build());
+		CreateRouteTableResponse wRouteTableResp = client.createRouteTable(CreateRouteTableRequest.builder().vpcId(bean.vpcId).build());
 
-		pBean.privateSubnetsRouteTable = wRouteTableResp.routeTable().routeTableId();
+		bean.privateSubnetsRouteTable = wRouteTableResp.routeTable().routeTableId();
 
-		System.out.println("ROUTE TABLE: " + pBean.privateSubnetsRouteTable);
-		AWSUtils.addTag(pClient, pBean.privateSubnetsRouteTable, "Name", "JavaRouteTablePrivate");
+		System.out.println("ROUTE TABLE: " + bean.privateSubnetsRouteTable);
+		AWSUtils.addTag(client, bean.privateSubnetsRouteTable, "Name", "JavaRouteTablePrivate");
 
-		createRoute(pClient, pBean);
+		createRoute(client, bean);
 
-		pClient.associateRouteTable(AssociateRouteTableRequest.builder().subnetId(pBean.subnetPrivateOneId).routeTableId(wRouteTableResp.routeTable().routeTableId()).build());
-		pClient.associateRouteTable(AssociateRouteTableRequest.builder().subnetId(pBean.subnetPrivateTwoId).routeTableId(wRouteTableResp.routeTable().routeTableId()).build());	
+		client.associateRouteTable(AssociateRouteTableRequest.builder().subnetId(bean.subnetPrivateOneId).routeTableId(wRouteTableResp.routeTable().routeTableId()).build());
+		client.associateRouteTable(AssociateRouteTableRequest.builder().subnetId(bean.subnetPrivateTwoId).routeTableId(wRouteTableResp.routeTable().routeTableId()).build());	
 	}
 	
 	/**
@@ -55,10 +59,10 @@ public class AddAccessInternetPrivateSubnets
 	 * @param pBean
 	 * @throws Exception
 	 */
-	private static void createRoute(Ec2Client pClient, InfoElementsBean pBean) throws Exception
+	private static void createRoute(Ec2Client pClient, InfoResourcesBean pBean)  
 	{
 		// we need to wait for NAT GATEWAY being created
-		Thread.sleep(5000);
+		AWSUtils.sleep(5000);
 
 		boolean wIsException = true;
 		int wNumRetry = 0;
@@ -67,7 +71,7 @@ public class AddAccessInternetPrivateSubnets
 			try
 			{
 				wNumRetry++;
-				Thread.sleep(1000 * wNumRetry);
+				AWSUtils.sleep(1000 * wNumRetry);
 				pClient.createRoute(CreateRouteRequest.builder().routeTableId(pBean.privateSubnetsRouteTable).destinationCidrBlock("0.0.0.0/0").natGatewayId(pBean.privateNatGateway).build());
 				
 				wIsException = false;
@@ -93,7 +97,7 @@ public class AddAccessInternetPrivateSubnets
 	 * @return
 	 * @throws Exception
 	 */
-	private static Address getAddressForNatGateway(Ec2Client pClient) throws Exception
+	private static Address getAddressForNatGateway(Ec2Client pClient) 
 	{
 		DescribeAddressesResponse wDescAdress = pClient.describeAddresses();
 		

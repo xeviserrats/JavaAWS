@@ -1,4 +1,4 @@
-package com.xevi.system.TestingAWS;
+package com.xevi.system.TestingAWS.utils;
 
 public class AWSConstants 
 {
@@ -21,4 +21,10 @@ public class AWSConstants
 
 	public static final String EC2_INSTANCE_LINUX_AMAZON2_AMIID = "ami-07d9160fa81ccffb5";
 	public static final String EC2_INSTANCE_TYPE 				= "t2.micro";
+	
+	
+	public static final String EC2_PRIVATE_IP_BASTION 			= "10.0.0.100";
+
+	public static final String EC2_PRIVATE_IP_SUBNET_ONE		= "10.0.1.100";
+	public static final String EC2_PRIVATE_IP_SUBNET_TWO		= "10.0.2.100";
 }
