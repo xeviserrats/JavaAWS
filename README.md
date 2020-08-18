@@ -5,6 +5,6 @@ This is an example multi-tier web application. The Linux Ec2 Instances are launc
 
 ![AWS Diagram](https://github.com/xeviserrats/JavaAWS/blob/aws_docs/src/main/docs/Web%20App%20Reference%20Architecture_50.png?raw=true)
 
-Interactive diagram with links to the Java code: https://app.cloudcraft.co/blueprint/f7e83475-90fd-4cab-93fc-fbd13eabe476
+Interactive diagram with links to the Java code: https://app.cloudcraft.co/view/f7e83475-90fd-4cab-93fc-fbd13eabe476?key=wRRa4fpSbwdX-jzWMMzxFw&interactive=true&embed=true
 
 ![AWS Diagram](https://github.com/xeviserrats/JavaAWS/blob/aws_docs/src/main/docs/AWS_Links.png?raw=true)
