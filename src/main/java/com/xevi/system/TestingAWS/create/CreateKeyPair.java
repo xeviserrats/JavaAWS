@@ -10,6 +10,7 @@ import java.util.Date;
 import org.apache.commons.io.IOUtils;
 
 import com.xevi.system.TestingAWS.bean.InfoResourcesBean;
+import com.xevi.system.TestingAWS.utils.AWSConstants;
 import com.xevi.system.TestingAWS.utils.AWSUtils;
 
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -32,7 +33,7 @@ public class CreateKeyPair extends BaseCreateResource<Ec2Client>
 	@Override
 	public void create() 
 	{
-		bean.keyPairName = "JAVA_KEY";
+		bean.keyPairName = AWSConstants.KEYPAIR_NAME;
 		
 		boolean wExistsKey = false;
 		// if exists, remove previous

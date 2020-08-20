@@ -2,6 +2,8 @@ package com.xevi.system.TestingAWS.utils;
 
 public class AWSConstants 
 {
+	public static final String KEYPAIR_NAME = "JAVA_KEY";
+	
 	public static final String TAG_ALLOCATION_IP_FOR_GATEWAY_KEY 	= "TYPE";
 	public static final String TAG_ALLOCATION_IP_FOR_GATEWAY_VALUE 	= "FOR_GATEWAY";
 
@@ -26,5 +28,8 @@ public class AWSConstants
 	public static final String EC2_PRIVATE_IP_BASTION 			= "10.0.0.100";
 
 	public static final String EC2_PRIVATE_IP_SUBNET_ONE		= "10.0.1.100";
+	public static final String EC2_PRIVATE_IP_SUBNET_ONE_TEST	= "10.0.1.101";
 	public static final String EC2_PRIVATE_IP_SUBNET_TWO		= "10.0.2.100";
+	
+	public static final String LOADBALANCER_HEALTHCHECK_PATH 	= "/Example/getInfoServer";
 }

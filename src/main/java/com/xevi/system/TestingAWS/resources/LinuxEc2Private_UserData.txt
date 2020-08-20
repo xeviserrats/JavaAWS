@@ -1,0 +1,9 @@
+#cloud-config
+repo_update: true
+repo_upgrade: all
+
+runcmd:
+ - sudo yum -y  install java-11-amazon-corretto-headless
+ - wget https://s3-eu-west-1.amazonaws.com/com.testaws.public/SprintBootRest/SpringBootRest-0.0.1-SNAPSHOT.war
+ - java -jar SpringBootRest-0.0.1-SNAPSHOT.war > /tmp/logSpringRest.log &
+ 

@@ -1,4 +1,4 @@
-package com.xevi.system.TestingAWS.privateSubnet;
+package com.xevi.system.TestingAWS.create.privateSubnet;
 
 import com.xevi.system.TestingAWS.bean.InfoResourcesBean;
 import com.xevi.system.TestingAWS.create.BaseCreateResource;
