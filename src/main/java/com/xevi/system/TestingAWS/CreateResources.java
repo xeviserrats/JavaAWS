@@ -6,7 +6,7 @@ import com.xevi.system.TestingAWS.create.CreateEc2InstanceBastion;
 import com.xevi.system.TestingAWS.create.CreateKeyPair;
 import com.xevi.system.TestingAWS.create.CreateVPC_PublicSubnets;
 import com.xevi.system.TestingAWS.create.elb.CreateElasticLoadBalancer;
-import com.xevi.system.TestingAWS.privateSubnet.CreatePrivateResources;
+import com.xevi.system.TestingAWS.create.privateSubnet.CreatePrivateResources;
 import com.xevi.system.TestingAWS.utils.AWSUtils;
 
 import software.amazon.awssdk.regions.Region;

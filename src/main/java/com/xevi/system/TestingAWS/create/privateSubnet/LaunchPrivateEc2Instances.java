@@ -1,4 +1,4 @@
-package com.xevi.system.TestingAWS.privateSubnet;
+package com.xevi.system.TestingAWS.create.privateSubnet;
 
 import com.xevi.system.TestingAWS.bean.InfoResourcesBean;
 import com.xevi.system.TestingAWS.create.BaseCreateResource;
@@ -15,6 +15,9 @@ import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
 
 /**
  * Launch two Ec2 Instance. Each in one different private subnet.
+ * 
+ * https://s3-eu-west-1.amazonaws.com/com.testaws.public/SpringBootRest-0.0.1-SNAPSHOT.war
+ * 
  * @author xevi
  */
 public class LaunchPrivateEc2Instances extends BaseCreateResource<Ec2Client> 
